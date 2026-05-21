@@ -1,0 +1,50 @@
+name: Convert GFPGAN to NCNN
+
+on:
+  workflow_dispatch:
+
+jobs:
+  convert:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Setup Swap
+        run: |
+          sudo swapoff /swapfile 2>/dev/null || true
+          sudo rm -f /swapfile 2>/dev/null || true
+          sudo fallocate -l 16G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install --no-cache-dir torch==2.1.0+cpu torchvision==0.16.0+cpu --index-url https://download.pytorch.org/whl/cpu
+          pip install --no-cache-dir basicsr==1.4.2 facexlib gfpgan
+          pip install pnnx
+
+      - name: Download GFPGAN Model
+        run: |
+          wget -q https://github.com/TencentARC/GFPGAN/releases/download/v1.3.4/GFPGANv1.4.pth -O GFPGANv1.4.pth
+          ls -la GFPGANv1.4.pth
+
+      - name: Convert to NCNN
+        timeout-minutes: 30
+        run: python convert_gfpgan.py
+
+      - name: Upload Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: GFPGAN-NCNN
+          path: |
+            *.param
+            *.bin
+          retention-days: 30
