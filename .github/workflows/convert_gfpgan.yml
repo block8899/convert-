@@ -36,6 +36,8 @@ jobs:
           pip install torch==2.1.0+cpu torchvision==0.16.0+cpu --index-url https://download.pytorch.org/whl/cpu
           python -c "import torch; print('torch OK:', torch.__version__)"
 
+          pip install --no-deps lmdb pyyaml scipy yapf opencv-python-headless
+
           # ★ B3: basicsr + gfpgan (không upgrade numpy)
           pip install --no-deps lmdb pyyaml scipy yapf
           pip install --no-deps basicsr==1.4.2
