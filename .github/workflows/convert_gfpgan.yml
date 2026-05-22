@@ -24,31 +24,24 @@ jobs:
           sudo swapon /swapfile
           free -h
 
-      - name: Install Dependencies (ordered)
+      - name: Install Dependencies
         run: |
           pip install --upgrade pip setuptools wheel
 
-          # ★ B1: numpy TRƯỚC torch
           pip install "numpy==1.26.4"
           python -c "import numpy; print('numpy OK:', numpy.__version__)"
 
-          # ★ B2: torch SAU numpy
           pip install torch==2.1.0+cpu torchvision==0.16.0+cpu --index-url https://download.pytorch.org/whl/cpu
           python -c "import torch; print('torch OK:', torch.__version__)"
 
-          pip install --no-deps lmdb pyyaml scipy yapf opencv-python-headless
-          pip install --no-deps lmdb pyyaml scipy yapf opencv-python-headless tqdm          
-
-          # ★ B3: basicsr + gfpgan (không upgrade numpy)
-          pip install --no-deps lmdb pyyaml scipy yapf
+          pip install --no-deps lmdb pyyaml scipy yapf opencv-python-headless tqdm
           pip install --no-deps basicsr==1.4.2
           pip install --no-deps facexlib
           pip install --no-deps gfpgan
 
-          # ★ B4: pnnx
           pip install pnnx
+          pip install ncnn
 
-          # Verify
           python -c "import basicsr; print('basicsr OK')"
           python -c "import gfpgan; print('gfpgan OK')"
 
@@ -60,6 +53,44 @@ jobs:
       - name: Convert to NCNN
         timeout-minutes: 30
         run: python convert_gfpgan.py
+
+      - name: Optimize FP16
+        run: |
+          python -c "
+          import subprocess, os
+
+          print('=== Before optimize ===')
+          for f in ['gfpgan.ncnn.param', 'gfpgan.ncnn.bin']:
+              if os.path.exists(f):
+                  print(f'{f}: {os.path.getsize(f)/1024/1024:.1f} MB')
+
+          result = subprocess.run([
+              'ncnnoptimize',
+              'gfpgan.ncnn.param', 'gfpgan.ncnn.bin',
+              'gfpgan_opt.ncnn.param', 'gfpgan_opt.ncnn.bin',
+              '65536'
+          ], capture_output=True, text=True)
+          print(result.stdout)
+          if result.stderr: print('stderr:', result.stderr)
+
+          if os.path.exists('gfpgan_opt.ncnn.bin'):
+              print('=== After optimize ===')
+              orig = os.path.getsize('gfpgan.ncnn.bin') / 1024 / 1024
+              opt = os.path.getsize('gfpgan_opt.ncnn.bin') / 1024 / 1024
+              print(f'Original: {orig:.1f} MB')
+              print(f'FP16: {opt:.1f} MB')
+              print(f'Saved: {orig - opt:.1f} MB ({(1 - opt/orig)*100:.0f}%)')
+              os.replace('gfpgan_opt.ncnn.param', 'gfpgan.ncnn.param')
+              os.replace('gfpgan_opt.ncnn.bin', 'gfpgan.ncnn.bin')
+          else:
+              print('ncnnoptimize failed, keeping originals')
+          "
+
+      - name: Show Final Size
+        run: |
+          echo "=== Final files ==="
+          ls -lh *.param *.bin 2>/dev/null || echo "No files found"
+          du -h *.bin 2>/dev/null || echo "No bin files"
 
       - name: Upload Files
         uses: actions/upload-artifact@v4
