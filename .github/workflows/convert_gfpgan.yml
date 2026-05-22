@@ -27,9 +27,21 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install --upgrade pip
+          # ★ Fix numpy first
+          pip install "numpy<2.0" --force-reinstall
+          # ★ Pin torch version
           pip install --no-cache-dir torch==2.1.0+cpu torchvision==0.16.0+cpu --index-url https://download.pytorch.org/whl/cpu
-          pip install --no-cache-dir basicsr==1.4.2 facexlib gfpgan
+          # ★ Install basicsr BEFORE gfpgan
+          pip install --no-cache-dir basicsr==1.4.2
+          pip install --no-cache-dir facexlib
+          pip install --no-cache-dir gfpgan
           pip install pnnx
+
+      - name: Verify numpy
+        run: |
+          python -c "import numpy; print('numpy:', numpy.__version__)"
+          python -c "import torch; print('torch:', torch.__version__)"
+          python -c "import basicsr; print('basicsr OK')"
 
       - name: Download GFPGAN Model
         run: |
