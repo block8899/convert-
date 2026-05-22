@@ -37,6 +37,7 @@ jobs:
           python -c "import torch; print('torch OK:', torch.__version__)"
 
           pip install --no-deps lmdb pyyaml scipy yapf opencv-python-headless
+          pip install --no-deps lmdb pyyaml scipy yapf opencv-python-headless tqdm          
 
           # ★ B3: basicsr + gfpgan (không upgrade numpy)
           pip install --no-deps lmdb pyyaml scipy yapf
